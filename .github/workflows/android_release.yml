@@ -24,18 +24,29 @@ jobs:
       - name: Flutter version
         run: flutter --version
 
-      - name: Ensure Android SDK version
+      - name: Ensure valid Flutter Android structure
+        shell: bash
+        run: |
+          if [ ! -f "android/app/build.gradle" ]; then
+            echo "⚙️  No Android folder detected. Recreating valid Flutter app structure..."
+            TMPDIR=$(mktemp -d)
+            flutter create -t app "$TMPDIR/app"
+            mv "$TMPDIR/app/android" ./android
+            mv "$TMPDIR/app/ios" ./ios
+            rm -rf "$TMPDIR"
+          else
+            echo "✅ Existing Android folder found."
+          fi
+
+      - name: Ensure compileSdk level 35
         shell: bash
         run: |
           FILE="android/app/build.gradle"
           if [[ -f "$FILE" ]]; then
-            echo "Patching compileSdk in $FILE"
             sed -i "s/compileSdk.*/compileSdk = 35/" "$FILE" || true
-          else
-            echo "No build.gradle found at $FILE"
           fi
 
-      - name: Get packages
+      - name: Get Flutter packages
         run: flutter pub get
 
       - name: Build release APK
