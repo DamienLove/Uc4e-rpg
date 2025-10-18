@@ -18,8 +18,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter (latest stable)
+        uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.6'
           channel: 'stable'
@@ -28,8 +31,8 @@ jobs:
         working-directory: universe_connected
         run: flutter pub get
 
-      # For GitHub Pages, set base-href to the repo path: /Uc4e-rpg/
-      - name: Build Flutter web (HTML renderer, fewer surprises on mobile browsers)
+      # Build the Flutter web app for GitHub Pages
+      - name: Build Flutter Web
         working-directory: universe_connected
         run: flutter build web --release --web-renderer html --base-href /Uc4e-rpg/
 
