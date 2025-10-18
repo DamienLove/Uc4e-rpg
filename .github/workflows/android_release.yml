@@ -24,14 +24,10 @@ jobs:
       - name: Flutter version
         run: flutter --version
 
-      # Optional: only needed if your app folder doesn’t exist yet
-      # - name: Create Flutter skeleton (one-time)
-      #   run: flutter create universe_connected
-
       - name: Ensure Android SDK version
         shell: bash
         run: |
-          FILE="universe_connected/android/app/build.gradle"
+          FILE="android/app/build.gradle"
           if [[ -f "$FILE" ]]; then
             echo "Patching compileSdk in $FILE"
             sed -i "s/compileSdk.*/compileSdk = 35/" "$FILE" || true
@@ -40,15 +36,13 @@ jobs:
           fi
 
       - name: Get packages
-        working-directory: universe_connected
         run: flutter pub get
 
       - name: Build release APK
-        working-directory: universe_connected
         run: flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: uc4e-apk
-          path: universe_connected/build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
