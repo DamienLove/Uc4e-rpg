@@ -1,4 +1,4 @@
-name: Android Release (APK)
+name: Android Release (Legacy Flame)
 
 on:
   push:
@@ -12,82 +12,35 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Flutter (latest stable)
+      - name: Install Flutter 3.7
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.35.6'
+          flutter-version: '3.7.12'
           channel: 'stable'
 
-      - name: Show Flutter version
+      - name: Flutter version
         run: flutter --version
 
-      - name: Ensure valid Android project
+      - name: Ensure Android folder exists
         shell: bash
         run: |
           if [ ! -f "android/app/build.gradle" ]; then
-            echo "⚙️  Android folder missing, creating valid Flutter project structure..."
-            TMPDIR=$(mktemp -d)
-            flutter create -t app "$TMPDIR/app"
-            mv "$TMPDIR/app/android" ./android
-            mv "$TMPDIR/app/ios" ./ios
-            rm -rf "$TMPDIR"
-          else
-            echo "✅ Existing Android folder found."
+            echo "Creating Android folder..."
+            flutter create .
           fi
+          sed -i 's/compileSdk.*/compileSdk = 33/' android/app/build.gradle || true
 
-      - name: Patch compileSdk
-        shell: bash
-        run: |
-          FILE="android/app/build.gradle"
-          if [[ -f "$FILE" ]]; then
-            sed -i "s/compileSdk.*/compileSdk = 35/" "$FILE" || true
-          fi
-
-      # 🔧 AUTO-PATCH FLAME COMPATIBILITY
-      - name: Patch Flame input system and imports
-        shell: bash
-        run: |
-          echo "🔧 Updating deprecated Flame input mixins and missing imports..."
-
-          # Fix ConnectedGame class
-          sed -i 's/HasTappables, HasDraggables, //' lib/game/connected_game.dart 2>/dev/null || true
-          sed -i 's/with HasTappables/with HasCollisionDetection/' lib/game/connected_game.dart 2>/dev/null || true
-          grep -q "import 'package:flame/events.dart';" lib/game/connected_game.dart || \
-            sed -i "1i import 'package:flame/events.dart';" lib/game/connected_game.dart 2>/dev/null || true
-
-          # Fix LightningController
-          grep -q "import 'package:flame/events.dart';" lib/game/components/lightning.dart || \
-            sed -i "1i import 'package:flame/events.dart';" lib/game/components/lightning.dart 2>/dev/null || true
-          sed -i 's/with Draggable/with DragCallbacks, HasGameRef/' lib/game/components/lightning.dart 2>/dev/null || true
-          sed -i 's/DragStartInfo/DragStartEvent/g' lib/game/components/lightning.dart 2>/dev/null || true
-          sed -i 's/DragUpdateInfo/DragUpdateEvent/g' lib/game/components/lightning.dart 2>/dev/null || true
-          sed -i 's/DragEndInfo/DragEndEvent/g' lib/game/components/lightning.dart 2>/dev/null || true
-
-          # Ensure dart:ui imports
-          for f in $(grep -rl "Paint(" lib/game | grep -E '\.dart$'); do
-            grep -q "dart:ui" "$f" || sed -i "1i import 'dart:ui';" "$f"
-          done
-
-          # Fix Curves import
-          grep -q "package:flutter/animation.dart" lib/game/components/protocell.dart || \
-            sed -i "1i import 'package:flutter/animation.dart';" lib/game/components/protocell.dart 2>/dev/null || true
-
-          # Fix TextStyle const issue
-          sed -i 's/const TextStyle(/TextStyle(/g' lib/game/ui/hud.dart 2>/dev/null || true
-
-          echo "✅ Flame patch complete."
-
-      - name: Get Flutter packages
+      - name: Get dependencies
         run: flutter pub get
 
       - name: Build release APK
         run: flutter build apk --release
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: uc4e-apk
+          name: uc4e-legacy-apk
           path: build/app/outputs/flutter-apk/app-release.apk
