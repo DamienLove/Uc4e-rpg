@@ -1,0 +1,51 @@
+name: Android Release (APK)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter (newer Dart to avoid version pinning fights)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.6'
+          channel: 'stable'
+
+      - name: Flutter version
+        run: flutter --version
+
+      # If your project hasn't been scaffolded yet, uncomment this block ONCE
+      # - name: Create Flutter skeleton (one-time only)
+      #   run: |
+      #     [ -d "universe_connected" ] || flutter create universe_connected
+
+      - name: Set Android compileSdk to 35 (audioplayers_android requires 35)
+        run: |
+          FILE=universe_connected/android/app/build.gradle
+          if [ -f "$FILE" ]; then
+            sed -i 's/compileSdk.*/compileSdk = 35/' $FILE || true
+          fi
+
+      - name: Get packages
+        working-directory: universe_connected
+        run: flutter pub get
+
+      - name: Build APK (release)
+        working-directory: universe_connected
+        run: flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uc4e-apk
+          path: universe_connected/build/app/outputs/flutter-apk/app-release.apk
