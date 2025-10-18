@@ -21,14 +21,14 @@ jobs:
           flutter-version: '3.35.6'
           channel: 'stable'
 
-      - name: Flutter version
+      - name: Show Flutter version
         run: flutter --version
 
-      - name: Ensure valid Flutter Android structure
+      - name: Ensure valid Android project
         shell: bash
         run: |
           if [ ! -f "android/app/build.gradle" ]; then
-            echo "⚙️  No Android folder detected. Recreating valid Flutter app structure..."
+            echo "⚙️  Android folder missing, creating valid Flutter project structure..."
             TMPDIR=$(mktemp -d)
             flutter create -t app "$TMPDIR/app"
             mv "$TMPDIR/app/android" ./android
@@ -38,13 +38,47 @@ jobs:
             echo "✅ Existing Android folder found."
           fi
 
-      - name: Ensure compileSdk level 35
+      - name: Patch compileSdk
         shell: bash
         run: |
           FILE="android/app/build.gradle"
           if [[ -f "$FILE" ]]; then
             sed -i "s/compileSdk.*/compileSdk = 35/" "$FILE" || true
           fi
+
+      # 🔧 AUTO-PATCH FLAME COMPATIBILITY
+      - name: Patch Flame input system and imports
+        shell: bash
+        run: |
+          echo "🔧 Updating deprecated Flame input mixins and missing imports..."
+
+          # Fix ConnectedGame class
+          sed -i 's/HasTappables, HasDraggables, //' lib/game/connected_game.dart 2>/dev/null || true
+          sed -i 's/with HasTappables/with HasCollisionDetection/' lib/game/connected_game.dart 2>/dev/null || true
+          grep -q "import 'package:flame/events.dart';" lib/game/connected_game.dart || \
+            sed -i "1i import 'package:flame/events.dart';" lib/game/connected_game.dart 2>/dev/null || true
+
+          # Fix LightningController
+          grep -q "import 'package:flame/events.dart';" lib/game/components/lightning.dart || \
+            sed -i "1i import 'package:flame/events.dart';" lib/game/components/lightning.dart 2>/dev/null || true
+          sed -i 's/with Draggable/with DragCallbacks, HasGameRef/' lib/game/components/lightning.dart 2>/dev/null || true
+          sed -i 's/DragStartInfo/DragStartEvent/g' lib/game/components/lightning.dart 2>/dev/null || true
+          sed -i 's/DragUpdateInfo/DragUpdateEvent/g' lib/game/components/lightning.dart 2>/dev/null || true
+          sed -i 's/DragEndInfo/DragEndEvent/g' lib/game/components/lightning.dart 2>/dev/null || true
+
+          # Ensure dart:ui imports
+          for f in $(grep -rl "Paint(" lib/game | grep -E '\.dart$'); do
+            grep -q "dart:ui" "$f" || sed -i "1i import 'dart:ui';" "$f"
+          done
+
+          # Fix Curves import
+          grep -q "package:flutter/animation.dart" lib/game/components/protocell.dart || \
+            sed -i "1i import 'package:flutter/animation.dart';" lib/game/components/protocell.dart 2>/dev/null || true
+
+          # Fix TextStyle const issue
+          sed -i 's/const TextStyle(/TextStyle(/g' lib/game/ui/hud.dart 2>/dev/null || true
+
+          echo "✅ Flame patch complete."
 
       - name: Get Flutter packages
         run: flutter pub get
